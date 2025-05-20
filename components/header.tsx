@@ -44,12 +44,12 @@ export default function Header() {
         <span className="font-bold">LOGO</span>
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" className="rounded-full bg-white">
+        {/* <Button variant="outline" size="icon" className="rounded-full bg-white">
           <Search className="h-4 w-4" />
         </Button>
         <Button variant="outline" size="icon" className="rounded-full bg-white">
           <Bell className="h-4 w-4" />
-        </Button>
+        </Button> */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="rounded-full bg-white">

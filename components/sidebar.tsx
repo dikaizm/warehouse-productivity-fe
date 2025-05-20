@@ -1,18 +1,18 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { Button } from "./ui/button"
+import { PlusIcon } from "lucide-react"
 
 export default function Sidebar() {
   const pathname = usePathname()
-
+  const router = useRouter()
   const links = [
     { name: "Overview", href: "/" },
-    { name: "Daily Log", href: "/daily-log" },
+    { name: "Daily Log", href: "/daily-logs" },
     { name: "Insights", href: "/insights" },
-    { name: "Input Form", href: "/input-form" },
-    { name: "Activity Log", href: "/activity-log" },
     { name: "Top Performers", href: "/top-performers" },
     { name: "Reports", href: "/reports" },
     { name: "Settings", href: "/settings" },
@@ -20,7 +20,9 @@ export default function Sidebar() {
 
   return (
     <aside className="w-48 bg-gray-100 p-4">
-      <nav className="space-y-1">
+      <Button variant="outline" className={`w-full bg-blue-500 text-white ${pathname === "/daily-logs/input" ? "bg-white text-black" : ""}`} onClick={() => router.push("/daily-logs/input")}><PlusIcon className="w-4 h-4" /> Input Form</Button>
+
+      <nav className="mt-4">
         {links.map((link) => (
           <Link
             key={link.name}
