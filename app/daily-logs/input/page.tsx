@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,47 +12,79 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Mock data for workers - replace with actual data from API
-const mockWorkers = [
-  { id: 1, name: "John Doe", role: "Picker" },
-  { id: 2, name: "Jane Smith", role: "Binner" },
-  { id: 3, name: "Mike Johnson", role: "Picker" },
-  { id: 4, name: "Sarah Williams", role: "Binner" },
-  { id: 5, name: "David Brown", role: "Picker" },
-  { id: 6, name: "Lisa Davis", role: "Binner" },
-  { id: 7, name: "Tom Wilson", role: "Picker" },
-  { id: 8, name: "Emma Taylor", role: "Binner" },
-];
+import { postDailyLog, getUsers } from '@/lib/api';
+import { User } from "@/lib/types";
 
 export default function DailyLogsPage() {
   const [date, setDate] = useState<Date>();
-  const [binningCount, setBinningCount] = useState("");
-  const [pickingCount, setPickingCount] = useState("");
-  const [totalItems, setTotalItems] = useState("");
+  const [binningCount, setBinningCount] = useState<number>(0);
+  const [pickingCount, setPickingCount] = useState<number>(0);
+  const [totalItems, setTotalItems] = useState<number>(0);
   const [selectedWorkers, setSelectedWorkers] = useState<number[]>([]);
   const [workNotes, setWorkNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [workers, setWorkers] = useState<User[]>([]);
+  const [loadingWorkers, setLoadingWorkers] = useState(true);
+
+  useEffect(() => {
+    const fetchWorkers = async () => {
+      try {
+        setLoadingWorkers(true);
+        const response = await getUsers({ role: 'operasional' });
+        if (response?.data && Array.isArray(response.data)) {
+          setWorkers(response.data);
+        } else {
+          console.error('Invalid workers data format:', response);
+          setWorkers([]);
+          setErrorMsg('Format data karyawan tidak valid');
+        }
+      } catch (error: any) {
+        console.error('Error fetching workers:', error);
+        setWorkers([]);
+        setErrorMsg(error?.message || 'Gagal memuat data karyawan.');
+      } finally {
+        setLoadingWorkers(false);
+      }
+    };
+
+    fetchWorkers();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setSuccess(null);
+    setErrorMsg(null);
     try {
-      // Add your API call here
-      console.log({
-        date,
-        binningCount,
-        pickingCount,
-        totalItems,
-        selectedWorkers,
-        workNotes,
+      await postDailyLog({
+        logDate: date ? date.toISOString() : '',
+        binningCount: Number(binningCount),
+        pickingCount: Number(pickingCount),
+        totalItems: Number(totalItems),
+        workerPresents: selectedWorkers,
+        workNotes: workNotes || undefined,
       });
-    } catch (error) {
-      console.error(error);
+      setSuccess('Log harian berhasil dikirim!');
+
+      // Reset form
+      setDate(undefined);
+      setBinningCount(0);
+      setPickingCount(0);
+      setTotalItems(0);
+      setSelectedWorkers([]);
+      setWorkNotes('');
+    } catch (error: any) {
+      setErrorMsg(error?.message || 'Gagal mengirim log harian.');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    setTotalItems(Number(binningCount) + Number(pickingCount));
+  }, [binningCount, pickingCount]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -63,6 +95,9 @@ export default function DailyLogsPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="w-full p-4 bg-white rounded-xl flex flex-col justify-start items-start gap-6 overflow-hidden">
+          {success && <div className="w-full p-3 mb-2 rounded bg-green-100 text-green-700">{success}</div>}
+          {errorMsg && <div className="w-full p-3 mb-2 rounded bg-red-100 text-red-700">{errorMsg}</div>}
+
           {/* Date Input */}
           <div className="w-full md:w-80 flex flex-col justify-start items-start gap-1">
             <Label className="text-neutral-900 text-sm font-medium leading-tight">
@@ -104,9 +139,17 @@ export default function DailyLogsPage() {
                   Item Binning
                 </Label>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={binningCount}
-                  onChange={(e) => setBinningCount(e.target.value)}
+                  onChange={(e) => {
+                    // Only allow digits
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    // Remove leading zeros
+                    const cleanValue = value.replace(/^0+/, '');
+                    setBinningCount(cleanValue === '' ? 0 : Number(cleanValue));
+                  }}
                   className="w-full h-14 px-5 text-base border-G300 placeholder:text-G500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   placeholder="0"
                 />
@@ -118,9 +161,17 @@ export default function DailyLogsPage() {
                   Item Picking
                 </Label>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={pickingCount}
-                  onChange={(e) => setPickingCount(e.target.value)}
+                  onChange={(e) => {
+                    // Only allow digits
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    // Remove leading zeros
+                    const cleanValue = value.replace(/^0+/, '');
+                    setPickingCount(cleanValue === '' ? 0 : Number(cleanValue));
+                  }}
                   className="w-full h-14 px-5 text-base border-G300 placeholder:text-G500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   placeholder="0"
                 />
@@ -134,9 +185,10 @@ export default function DailyLogsPage() {
                 <Input
                   type="number"
                   value={totalItems}
-                  onChange={(e) => setTotalItems(e.target.value)}
+                  onChange={(e) => setTotalItems(Number(e.target.value))}
                   className="w-full h-14 px-5 text-base border-G300 placeholder:text-G500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   placeholder="0"
+                  disabled
                 />
               </div>
             </div>
@@ -147,30 +199,40 @@ export default function DailyLogsPage() {
             <Label className="text-neutral-900 text-base font-medium leading-normal">
               Karyawan Hadir
             </Label>
-            <div className="w-full md:w-[496px] flex flex-wrap justify-start items-start gap-x-6">
-              {mockWorkers.map((worker) => (
-                <div key={worker.id} className="w-full sm:w-56 py-3 flex justify-start items-center gap-3">
-                  <Checkbox
-                    id={`worker-${worker.id}`}
-                    checked={selectedWorkers.includes(worker.id)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedWorkers([...selectedWorkers, worker.id]);
-                      } else {
-                        setSelectedWorkers(selectedWorkers.filter(id => id !== worker.id));
-                      }
-                    }}
-                    className="w-5 h-5 rounded border-2 border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white"
-                  />
-                  <Label
-                    htmlFor={`worker-${worker.id}`}
-                    className="text-neutral-900 text-sm font-normal leading-tight"
-                  >
-                    {worker.name} ({worker.role})
-                  </Label>
-                </div>
-              ))}
-            </div>
+            {loadingWorkers ? (
+              <div className="w-full flex justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+              </div>
+            ) : !Array.isArray(workers) || workers.length === 0 ? (
+              <div className="w-full text-center py-4 text-gray-500">
+                {!Array.isArray(workers) ? 'Data karyawan tidak valid' : 'Tidak ada data karyawan'}
+              </div>
+            ) : (
+              <div className="w-full md:w-[496px] flex flex-wrap justify-start items-start gap-x-6">
+                {workers.map((worker) => (
+                  <div key={worker.id} className="w-full sm:w-56 py-3 flex justify-start items-center gap-3">
+                    <Checkbox
+                      id={`worker-${worker.id}`}
+                      checked={selectedWorkers.includes(worker.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedWorkers([...selectedWorkers, worker.id]);
+                        } else {
+                          setSelectedWorkers(selectedWorkers.filter(id => id !== worker.id));
+                        }
+                      }}
+                      className="w-5 h-5 rounded border-2 border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white"
+                    />
+                    <Label
+                      htmlFor={`worker-${worker.id}`}
+                      className="text-neutral-900 text-sm font-normal leading-tight"
+                    >
+                      {worker.fullName} ({worker.role.name})
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Work Notes */}

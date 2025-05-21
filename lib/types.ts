@@ -47,7 +47,122 @@ export interface RecentLogResponse {
 // Top Performers Table Type
 export interface TopPerformer {
   operatorName: string;
-  averageMonthlyProductivity: number;
-  monthlyWorkdays: number;
-  achievementVsTarget: number; // percent (0-100)
-} 
+  avgMonthlyProductivity: number;
+  avgMonthlyWorkdays: number;
+  productivity: {
+    avgActual: number;
+    target: number;
+  };
+}
+
+export interface Role {
+  id: number;
+  name: string;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  fullName: string;
+  email: string;
+  role: Role;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DailyLog {
+  id: number;
+  logDate: string;
+  binningCount: number;
+  pickingCount: number;
+  totalItems: number;
+  productivity: {
+    actual: number;
+    target: number;
+  };
+  attendance: {
+    operatorId: number;
+    operatorName: string;
+    operatorRole: string;
+  }[];
+}
+
+export interface DailyLogDetail {
+  id: number;
+  logDate: string;
+  binningCount: number;
+  pickingCount: number;
+  totalItems: number;
+  productivity: {
+    actual: number;
+    target: number;
+  };
+  attendance: {
+    operatorId: number;
+    operatorName: string;
+    operatorRole: string;
+  }[];
+  workNotes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InsightWorkerPresent {
+  present: number;
+  absent: number;
+  total: number;
+  presentPercentage: number;
+  absentPercentage: number;
+}
+
+export interface TrendItemDataPoint {
+  date: string;
+  binningCount: number;
+  pickingCount: number;
+  totalItems: number;
+}
+
+export interface InsightTrendItem {
+  data: TrendItemDataPoint[];
+  period: {
+    startDate: Date;
+    endDate: Date;
+  };
+};
+
+export type ReportType = 'daily' | 'weekly' | 'monthly';
+export type ReportSortBy = 'time' | 'operatorName' | 'totalItems' | 'productivity';
+export type ReportSortOrder = 'asc' | 'desc';
+
+export interface ReportFilterParams {
+  startDate: string;
+  endDate: string;
+  type: ReportType;
+  search?: string;
+  fileFormat?: 'csv' | 'pdf';
+}
+
+export interface ReportDataPoint {
+  time: string; // Format depends on type: 'YYYY-MM-DD' for daily, 'YYYY-WW' for weekly, 'YYYY-MM' for monthly
+  operatorId: number;
+  operatorName: string;
+  binningCount: number;
+  pickingCount: number;
+  totalItems: number;
+  productivity: number;
+  workdays: number;
+  attendanceCount: number;
+}
+
+export interface ReportMeta {
+  filter: ReportFilterParams;
+  totalOperators: number;
+  totalWorkdays: number;
+  totalItems: number;
+  generatedAt: string;
+}
+
+export interface ReportData {
+  meta: ReportMeta;
+  data: ReportDataPoint[];
+}

@@ -94,8 +94,8 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="p-8 max-w-7xl">
-      <h1 className="text-2xl font-bold mb-2">Ringkasan</h1>
+    <div className="px-8 max-w-7xl">
+      <h1 className="text-3xl font-bold mb-2">Ringkasan</h1>
       <p className="text-gray-600 mb-6">
         Ini adalah tampilan tingkat tinggi dari produktivitas tim Anda. Termasuk ringkasan aktivitas hari ini, serta tren 7 hari terakhir.
       </p>
@@ -174,7 +174,7 @@ export default function Dashboard() {
           {/* Productivity Overview */}
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Ringkasan Produktivitas</CardTitle>
+              <CardTitle>Ringkasan Produktivitas Hari Ini</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
