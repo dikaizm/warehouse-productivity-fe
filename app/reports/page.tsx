@@ -46,10 +46,6 @@ export default function ReportPage() {
     to: today,
   });
 
-  const filtered = MOCK_DATA.filter(row =>
-    row.operator.toLowerCase().includes(search.toLowerCase())
-  );
-
   const handleFilter = async () => {
     if (!dateRange.from || !dateRange.to) return;
 
@@ -83,7 +79,12 @@ export default function ReportPage() {
 
       // Get filename from Content-Disposition header if available
       const contentDisposition = res.headers.get('Content-Disposition');
-      let filename = `report.${exportFormat}`;
+
+      const now = new Date();
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+      let filename = `report_${timestamp}.${exportFormat}`;
+
       if (contentDisposition) {
         const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
         if (matches != null && matches[1]) {
