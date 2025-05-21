@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Bell, User, LogOut } from "lucide-react";
+import { Search, Bell, User, LogOut, Warehouse } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,36 +24,29 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { ROLES_NAME } from "@/lib/constants";
+import { useAuth } from "@/context/auth-context";
 
 export default function Header() {
   const router = useRouter();
-  const [user, setUser] = useState<{
-    username: string;
-    fullName: string;
-    role: string;
-    email: string;
-  } | null>(null);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-
-  useEffect(() => {
-    const userData = localStorage.getItem("userData");
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-  }, []);
+  const { user } = useAuth();
 
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
-    localStorage.removeItem("userData");
+    localStorage.removeItem("user");
     router.push("/login");
   };
 
   return (
     <header className="bg-yellow-300 p-4 flex w-full justify-between items-center fixed top-0 left-0 z-50">
-      <div className="flex items-center gap-2">
-        <div className="w-4 h-4 bg-black"></div>
-        <span className="font-bold">LOGO</span>
+      <div className="flex items-center gap-3">
+        <Warehouse className="w-8 h-8" />
+        <div className="font-bold flex flex-col">
+          <span className="text-xs">DASHBOARD</span>
+          <span>PRODUKTIVITAS GUDANG</span>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         {/* <Button variant="outline" size="icon" className="rounded-full bg-white">
@@ -65,7 +58,7 @@ export default function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="rounded-full bg-white">
-              <Avatar className="h-6 w-6">
+              <Avatar className="h-8 w-6">
                 <AvatarFallback>
                   {user?.fullName
                     ?.split(" ")
@@ -83,7 +76,7 @@ export default function Header() {
                   {user?.fullName}
                 </p>
                 <p className="text-sm leading-none text-muted-foreground">
-                  {user?.role}
+                  {ROLES_NAME[user?.role as keyof typeof ROLES_NAME]}
                 </p>
                 <p className="text-sm leading-none text-muted-foreground">
                   {user?.email}

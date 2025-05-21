@@ -1,5 +1,6 @@
 import { DateRange } from "react-day-picker";
 import { ReportFilterParams } from "./types";
+import router from "next/router";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -36,6 +37,24 @@ const handleResponse = async (res: Response) => {
 
   return result;
 };
+
+export const postLogin = async (data: {
+  usernameOrEmail: string;
+  password: string;
+}) => {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Login failed');
+  }
+
+  return handleResponse(res);
+}
 
 export const getOverviewCount = async () => {
   if (!validateToken()) return;
@@ -238,7 +257,7 @@ export const createUser = async (data: {
   email: string;
   password: string;
   role: string;
-  accessLevel: string;
+  subRole: string;
 }) => {
   if (!validateToken()) return;
   const res = await fetch(`${API_URL}/api/users`, {
@@ -257,7 +276,7 @@ export const updateUser = async (id: number, data: {
   username: string;
   email: string;
   role: string;
-  accessLevel: string;
+  subRole: string;
 }) => {
   if (!validateToken()) return;
   const res = await fetch(`${API_URL}/api/users/${id}`, {
@@ -325,7 +344,7 @@ export const getReportFilter = async (params: ReportFilterParams) => {
 export const getReportExport = async (params: ReportFilterParams) => {
   if (!validateToken()) return;
   const url = new URL(`${API_URL}/api/reports/export`);
-  
+
   // Add query parameters
   Object.entries(params).forEach(([key, value]) => {
     if (value) {

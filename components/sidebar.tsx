@@ -5,10 +5,13 @@ import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "./ui/button"
 import { PlusIcon } from "lucide-react"
+import { useAuth } from "@/context/auth-context"
+import { ROLES } from "@/lib/constants"
 
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { user, loading } = useAuth()
   const links = [
     { name: "Overview", href: "/" },
     { name: "Daily Log", href: "/daily-logs" },
@@ -20,9 +23,16 @@ export default function Sidebar() {
 
   return (
     <aside className="w-48 bg-gray-100 pl-4 pr-4 pt-24 pb-4 fixed h-full top-0 left-0 z-20">
-      <Button variant="outline" className={`w-full bg-blue-500 text-white ${pathname === "/daily-logs/input" ? "bg-white text-black" : ""}`} onClick={() => router.push("/daily-logs/input")}><PlusIcon className="w-4 h-4" /> Input Form</Button>
+      {!loading && user?.role === ROLES.KEPALA_GUDANG && (
+        <Button
+          variant="outline"
+          className={`w-full bg-blue-500 mb-4 text-white ${pathname === "/daily-logs/input" ? "bg-white text-black" : ""}`}
+          onClick={() => router.push("/daily-logs/input")}>
+          <PlusIcon className="w-4 h-4" /> Input Form
+        </Button>
+      )}
 
-      <nav className="mt-4">
+      <nav>
         {links.map((link) => (
           <Link
             key={link.name}

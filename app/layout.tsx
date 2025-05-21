@@ -7,6 +7,7 @@ import './globals.css'
 import { Inter } from 'next/font/google'
 import Header from "@/components/header";
 import Sidebar from "@/components/sidebar";
+import { AuthProvider } from "@/context/auth-context";
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -29,15 +30,17 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className={`${inter.className} flex flex-col max-h-screen text-black`}>
-        {showLayout && <Header />}
-        <div className="flex flex-1">
-          {showLayout && <Sidebar />}
-          <main className={`flex-1 ${showLayout ? "ml-48 pt-24" : ""} relative overflow-y-auto ${showLayout ? "p-6 bg-gray-50" : ""}`}>
-            {children}
-          </main>
-        </div>
-      </body>
+      <AuthProvider>
+        <body className={`${inter.className} flex flex-col max-h-screen text-black`}>
+          {showLayout && <Header />}
+          <div className="flex flex-1">
+            {showLayout && <Sidebar />}
+            <main className={`flex-1 ${showLayout ? "ml-48 pt-24" : ""} relative overflow-y-auto ${showLayout ? "p-6 bg-gray-50" : ""}`}>
+              {children}
+            </main>
+          </div>
+        </body>
+      </AuthProvider>
     </html>
   )
 }

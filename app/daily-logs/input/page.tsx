@@ -14,6 +14,7 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { postDailyLog, getUsers } from '@/lib/api';
 import { User } from "@/lib/types";
+import { SUB_ROLES, SUB_ROLES_NAME } from "@/lib/constants";
 
 export default function DailyLogsPage() {
   const [date, setDate] = useState<Date>();
@@ -34,6 +35,7 @@ export default function DailyLogsPage() {
         setLoadingWorkers(true);
         const response = await getUsers({ role: 'operasional' });
         if (response?.data && Array.isArray(response.data)) {
+          console.log(response.data);
           setWorkers(response.data);
         } else {
           console.error('Invalid workers data format:', response);
@@ -227,7 +229,7 @@ export default function DailyLogsPage() {
                       htmlFor={`worker-${worker.id}`}
                       className="text-neutral-900 text-sm font-normal leading-tight"
                     >
-                      {worker.fullName} ({worker.role.name})
+                      {worker.fullName} ({SUB_ROLES_NAME[worker.subRole.name as keyof typeof SUB_ROLES_NAME]})
                     </Label>
                   </div>
                 ))}

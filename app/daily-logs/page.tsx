@@ -34,7 +34,7 @@ import { CalendarIcon, Search } from "lucide-react";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { id as localeId } from "date-fns/locale";
-import { DailyLog, DailyLogDetail, RecentLogResponse } from "@/lib/types";
+import { DailyLog, DailyLogDetail } from "@/lib/types";
 import { deleteDailyLog, getDailyLogById, getDailyLogs, getUsers, updateDailyLog } from "@/lib/api";
 import {
     AlertDialog,
@@ -60,10 +60,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { ROLES, SUB_ROLES_NAME } from "@/lib/constants";
+import { useAuth } from "@/context/auth-context";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50];
 
 export default function DailyLogsPage() {
+    const { user } = useAuth();
+
     const [search, setSearch] = useState("");
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [page, setPage] = useState(1);
@@ -92,8 +96,6 @@ export default function DailyLogsPage() {
             try {
                 setLoading(true);
                 setError(null);
-
-                console.log(dateRange);
 
                 const response = await getDailyLogs({
                     page,
@@ -145,8 +147,11 @@ export default function DailyLogsPage() {
                 setLoadingWorkers(false);
             }
         };
-        fetchWorkers();
-    }, []);
+
+        if (user?.role === ROLES.KEPALA_GUDANG) {
+            fetchWorkers();
+        }
+    }, [user?.role]);
 
     // Calculate total pages based on total items from API
     const totalPages = Math.ceil(totalLogs / pageSize);
@@ -161,6 +166,10 @@ export default function DailyLogsPage() {
         { label: "Produktivitas", key: "productivity" },
         { label: "Actions", key: "actions" },
     ];
+
+    if (user?.role !== ROLES.KEPALA_GUDANG) {
+        headers.splice(headers.length - 1, 1);
+    }
 
     const handleDelete = async (id: string) => {
         await deleteDailyLog(Number(id));
@@ -332,7 +341,7 @@ export default function DailyLogsPage() {
                                                     {log.attendance.length > 0 ? (
                                                         <ul className="space-y-1">
                                                             {log.attendance.map((a, idx) => (
-                                                                <li key={idx} className="text-gray-700">{a.operatorName} - {a.operatorRole}</li>
+                                                                <li key={idx} className="text-gray-700">{a.operatorName}  ({SUB_ROLES_NAME[a.operatorSubRole as keyof typeof SUB_ROLES_NAME]})</li>
                                                             ))}
                                                         </ul>
                                                     ) : (
@@ -349,166 +358,170 @@ export default function DailyLogsPage() {
                                                 {log.productivity.actual} / {log.productivity.target}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="text-right flex gap-2 justify-end">
-                                            <Dialog open={showDetailDialog && detailLog?.id === log.id} onOpenChange={open => { setShowDetailDialog(open); if (!open) setDetailLog(null); }}>
-                                                <DialogTrigger asChild>
-                                                    <Button size="sm" variant="outline" onClick={() => { openDetailDialog(log) }}>Detail</Button>
-                                                </DialogTrigger>
-                                                <DialogContent>
-                                                    <DialogHeader>
-                                                        <DialogTitle>Detail Log Harian</DialogTitle>
-                                                    </DialogHeader>
-                                                    <div className="space-y-3">
-                                                        <div>
-                                                            <span className="block text-xs text-gray-500">Tanggal</span>
-                                                            <span className="font-medium">{format(new Date(log.logDate), "dd MMMM yyyy", { locale: localeId })}</span>
-                                                        </div>
-                                                        <div className="flex flex-row gap-4">
-                                                            <div className="w-full">
-                                                                <span className="block text-xs text-gray-500">Binning</span>
-                                                                <span className="font-medium">{log.binningCount}</span>
+                                        {user?.role === ROLES.KEPALA_GUDANG && (
+                                            <TableCell className="text-right flex gap-2 justify-end">
+                                                <Dialog open={showDetailDialog && detailLog?.id === log.id} onOpenChange={open => { setShowDetailDialog(open); if (!open) setDetailLog(null); }}>
+                                                    <DialogTrigger asChild>
+                                                        <Button size="sm" variant="outline" onClick={() => { openDetailDialog(log) }}>Detail</Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent>
+                                                        <DialogHeader>
+                                                            <DialogTitle>Detail Log Harian</DialogTitle>
+                                                        </DialogHeader>
+                                                        <div className="space-y-3">
+                                                            <div>
+                                                                <span className="block text-xs text-gray-500">Tanggal</span>
+                                                                <span className="font-medium">{format(new Date(log.logDate), "dd MMMM yyyy", { locale: localeId })}</span>
                                                             </div>
-                                                            <div className="w-full">
-                                                                <span className="block text-xs text-gray-500">Picking</span>
-                                                                <span className="font-medium">{log.pickingCount}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <span className="block text-xs text-gray-500">Total Item</span>
-                                                            <span className="font-medium">{log.totalItems}</span>
-                                                        </div>
-                                                        <div>
-                                                            <span className="block text-xs text-gray-500">Produktivitas</span>
-                                                            <span className={`font-medium px-2 py-1 rounded ${log.productivity.actual >= log.productivity.target ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>{log.productivity.actual} / {log.productivity.target}</span>
-                                                        </div>
-                                                        <div>
-                                                            <span className="block text-xs text-gray-500 mb-1">Karyawan Hadir</span>
-                                                            {detailLog && detailLog.attendance.length > 0 ? (
-                                                                <ul className="list-disc ml-5 text-sm">
-                                                                    {detailLog?.attendance.map((a, idx) => (
-                                                                        <li key={idx}>{a.operatorName} ({a.operatorRole})</li>
-                                                                    ))}
-                                                                </ul>
-                                                            ) : (
-                                                                <span className="text-gray-400">Tidak ada operator hadir</span>
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <span className="block text-xs text-gray-500 mb-1">Catatan</span>
-                                                            <span className="font-medium">{detailLog?.workNotes}</span>
-                                                        </div>
-                                                        <div>
-                                                            <span className="block text-xs text-gray-500 mb-1">Terakhir Diperbarui</span>
-                                                            <span className="font-medium">{detailLog ? format(new Date(detailLog?.createdAt), "dd MMMM yyyy", { locale: localeId }) : ''}</span>
-                                                        </div>
-                                                    </div>
-                                                </DialogContent>
-                                            </Dialog>
-                                            <Dialog open={showEditDialog && editLog?.id === log.id} onOpenChange={open => { setShowEditDialog(open); if (!open) setEditLog(null); }}>
-                                                <DialogTrigger asChild>
-                                                    <Button size="sm" onClick={() => openEditDialog(log)}>Edit</Button>
-                                                </DialogTrigger>
-                                                <DialogContent>
-                                                    <DialogHeader>
-                                                        <DialogTitle>Edit Log Harian</DialogTitle>
-                                                        <DialogDescription>
-                                                            Ubah data log harian di bawah ini, lalu simpan perubahan.
-                                                        </DialogDescription>
-                                                    </DialogHeader>
-                                                    <form className="space-y-4">
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Tanggal</label>
-                                                            <Input value={editLog ? format(new Date(editLog.logDate), "dd MMMM yyyy", { locale: localeId }) : ''} disabled />
-                                                        </div>
-                                                        <div className="flex flex-row gap-4">
-                                                            <div className="w-full">
-                                                                <label className="block text-sm font-medium text-neutral-700 mb-1">Binning</label>
-                                                                <Input type="number" value={editBinning} onChange={e => setEditBinning(Number(e.target.value))} />
-                                                            </div>
-                                                            <div className="w-full">
-                                                                <label className="block text-sm font-medium text-neutral-700 mb-1">Picking</label>
-                                                                <Input type="number" value={editPicking} onChange={e => setEditPicking(Number(e.target.value))} />
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Total Item</label>
-                                                            <Input type="number" value={editTotalItems} onChange={e => setEditTotalItems(Number(e.target.value))} disabled />
-                                                        </div>
-                                                        <div className="self-stretch flex flex-col justify-start items-start gap-2">
-                                                            <Label className="text-neutral-700 text-sm font-medium leading-normal">
-                                                                Karyawan Hadir
-                                                            </Label>
-                                                            {loadingWorkers ? (
-                                                                <div className="w-full flex justify-center py-4">
-                                                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                                                            <div className="flex flex-row gap-4">
+                                                                <div className="w-full">
+                                                                    <span className="block text-xs text-gray-500">Binning</span>
+                                                                    <span className="font-medium">{log.binningCount}</span>
                                                                 </div>
-                                                            ) : workers.length === 0 ? (
-                                                                <div className="w-full text-center py-4 text-gray-500">
-                                                                    Tidak ada data karyawan
+                                                                <div className="w-full">
+                                                                    <span className="block text-xs text-gray-500">Picking</span>
+                                                                    <span className="font-medium">{log.pickingCount}</span>
                                                                 </div>
-                                                            ) : (
-                                                                <div className="w-full flex flex-wrap justify-start items-start gap-x-6">
-                                                                    {workers.map((worker) => (
-                                                                        <div key={worker.id} className="w-full sm:w-56 py-2 flex justify-start items-center gap-3">
-                                                                            <Checkbox
-                                                                                id={`worker-${worker.id}`}
-                                                                                checked={editWorkers.includes(worker.id)}
-                                                                                onCheckedChange={(checked) => {
-                                                                                    if (checked) {
-                                                                                        setEditWorkers([...editWorkers, worker.id]);
-                                                                                    } else {
-                                                                                        setEditWorkers(editWorkers.filter(id => id !== worker.id));
-                                                                                    }
-                                                                                }}
-                                                                                className="w-5 h-5 rounded border-2 border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white"
-                                                                            />
-                                                                            <Label
-                                                                                htmlFor={`worker-${worker.id}`}
-                                                                                className="text-neutral-900 text-sm font-normal leading-tight"
-                                                                            >
-                                                                                {worker.fullName} ({worker.role?.name || worker.role})
-                                                                            </Label>
-                                                                        </div>
-                                                                    ))}
+                                                            </div>
+                                                            <div>
+                                                                <span className="block text-xs text-gray-500">Total Item</span>
+                                                                <span className="font-medium">{log.totalItems}</span>
+                                                            </div>
+                                                            <div>
+                                                                <span className="block text-xs text-gray-500">Produktivitas</span>
+                                                                <span className={`font-medium px-2 py-1 rounded ${log.productivity.actual >= log.productivity.target ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>{log.productivity.actual} / {log.productivity.target}</span>
+                                                            </div>
+                                                            <div>
+                                                                <span className="block text-xs text-gray-500 mb-1">Karyawan Hadir</span>
+                                                                {detailLog && detailLog.attendance.length > 0 ? (
+                                                                    <ul className={`list-disc ml-5 text-sm ${detailLog?.attendance.length > 4 ? 'grid grid-cols-2 gap-x-2' : ''}`}>
+                                                                        {detailLog?.attendance.map((a, idx) => (
+                                                                            <li key={idx}>{a.operatorName} ({
+                                                                                [SUB_ROLES_NAME[a.operatorSubRole as keyof typeof SUB_ROLES_NAME]]
+                                                                            })</li>
+                                                                        ))}
+                                                                    </ul>
+                                                                ) : (
+                                                                    <span className="text-gray-400">Tidak ada operator hadir</span>
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <span className="block text-xs text-gray-500 mb-1">Catatan</span>
+                                                                <span className="font-medium">{detailLog?.workNotes ? detailLog?.workNotes : 'Tidak ada catatan'}</span>
+                                                            </div>
+                                                            <div>
+                                                                <span className="block text-xs text-gray-500">Terakhir Diperbarui</span>
+                                                                <span className="font-medium text-sm">{detailLog ? format(new Date(detailLog?.createdAt), "dd MMMM yyyy", { locale: localeId }) : ''}</span>
+                                                            </div>
+                                                        </div>
+                                                    </DialogContent>
+                                                </Dialog>
+                                                <Dialog open={showEditDialog && editLog?.id === log.id} onOpenChange={open => { setShowEditDialog(open); if (!open) setEditLog(null); }}>
+                                                    <DialogTrigger asChild>
+                                                        <Button size="sm" onClick={() => openEditDialog(log)}>Edit</Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent>
+                                                        <DialogHeader>
+                                                            <DialogTitle>Edit Log Harian</DialogTitle>
+                                                            <DialogDescription>
+                                                                Ubah data log harian di bawah ini, lalu simpan perubahan.
+                                                            </DialogDescription>
+                                                        </DialogHeader>
+                                                        <form className="space-y-4">
+                                                            <div>
+                                                                <label className="block text-sm font-medium text-neutral-700 mb-1">Tanggal</label>
+                                                                <Input value={editLog ? format(new Date(editLog.logDate), "dd MMMM yyyy", { locale: localeId }) : ''} disabled />
+                                                            </div>
+                                                            <div className="flex flex-row gap-4">
+                                                                <div className="w-full">
+                                                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Binning</label>
+                                                                    <Input type="number" value={editBinning} onChange={e => setEditBinning(Number(e.target.value))} />
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Catatan</label>
-                                                            <Textarea value={editWorkNotes} onChange={e => setEditWorkNotes(e.target.value)} />
-                                                        </div>
-                                                    </form>
-                                                    <DialogFooter>
-                                                        <DialogClose asChild>
-                                                            <Button type="button" variant="secondary">Batal</Button>
-                                                        </DialogClose>
-                                                        <Button type="button" onClick={() => handleUpdateLog(log.id)}>Simpan</Button>
-                                                    </DialogFooter>
-                                                </DialogContent>
-                                            </Dialog>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button size="sm" variant="destructive">Hapus</Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Hapus Log?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Apakah Anda yakin ingin menghapus log harian ini? Tindakan ini tidak dapat dibatalkan.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                                                        <AlertDialogAction
-                                                            className="bg-red-600 hover:bg-red-700"
-                                                            onClick={() => handleDelete(String(log.id))}
-                                                        >
-                                                            Hapus
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </TableCell>
+                                                                <div className="w-full">
+                                                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Picking</label>
+                                                                    <Input type="number" value={editPicking} onChange={e => setEditPicking(Number(e.target.value))} />
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-sm font-medium text-neutral-700 mb-1">Total Item</label>
+                                                                <Input type="number" value={editTotalItems} onChange={e => setEditTotalItems(Number(e.target.value))} disabled />
+                                                            </div>
+                                                            <div className="self-stretch flex flex-col justify-start items-start gap-2">
+                                                                <Label className="text-neutral-700 text-sm font-medium leading-normal">
+                                                                    Karyawan Hadir
+                                                                </Label>
+                                                                {loadingWorkers ? (
+                                                                    <div className="w-full flex justify-center py-4">
+                                                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                                                                    </div>
+                                                                ) : workers.length === 0 ? (
+                                                                    <div className="w-full text-center py-4 text-gray-500">
+                                                                        Tidak ada data karyawan
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="w-full grid grid-cols-2 gap-x-6">
+                                                                        {workers.map((worker) => (
+                                                                            <div key={worker.id} className="py-2 flex justify-start items-center gap-3">
+                                                                                <Checkbox
+                                                                                    id={`worker-${worker.id}`}
+                                                                                    checked={editWorkers.includes(worker.id)}
+                                                                                    onCheckedChange={(checked) => {
+                                                                                        if (checked) {
+                                                                                            setEditWorkers([...editWorkers, worker.id]);
+                                                                                        } else {
+                                                                                            setEditWorkers(editWorkers.filter(id => id !== worker.id));
+                                                                                        }
+                                                                                    }}
+                                                                                    className="w-5 h-5 rounded border-2 border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white"
+                                                                                />
+                                                                                <Label
+                                                                                    htmlFor={`worker-${worker.id}`}
+                                                                                    className="text-neutral-900 text-sm font-normal leading-tight"
+                                                                                >
+                                                                                    {worker.fullName} ({SUB_ROLES_NAME[worker.subRole.name as keyof typeof SUB_ROLES_NAME]})
+                                                                                </Label>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-sm font-medium text-neutral-700 mb-1">Catatan</label>
+                                                                <Textarea value={editWorkNotes} onChange={e => setEditWorkNotes(e.target.value)} />
+                                                            </div>
+                                                        </form>
+                                                        <DialogFooter>
+                                                            <DialogClose asChild>
+                                                                <Button type="button" variant="secondary">Batal</Button>
+                                                            </DialogClose>
+                                                            <Button type="button" onClick={() => handleUpdateLog(log.id)}>Simpan</Button>
+                                                        </DialogFooter>
+                                                    </DialogContent>
+                                                </Dialog>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button size="sm" variant="destructive">Hapus</Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Hapus Log?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Apakah Anda yakin ingin menghapus log harian ini? Tindakan ini tidak dapat dibatalkan.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                                                            <AlertDialogAction
+                                                                className="bg-red-600 hover:bg-red-700"
+                                                                onClick={() => handleDelete(String(log.id))}
+                                                            >
+                                                                Hapus
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </TableCell>
+                                        )}
                                     </TableRow>
                                 ))}
                             </TableBody>

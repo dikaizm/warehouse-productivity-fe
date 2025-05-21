@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { createUser, getUsers, deleteUser, updateUser } from "@/lib/api";
-import { User } from "@/lib/types";
+import { User, UserFormRequest } from "@/lib/types";
 import { ChevronDown, Plus, Eye, EyeOff } from "lucide-react";
 import {
     Dialog,
@@ -34,51 +34,33 @@ import {
     AlertDialogCancel,
     AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/context/auth-context";
+import { ROLES, ROLES_NAME, SUB_ROLES, SUB_ROLES_NAME } from "@/lib/constants";
 
 export default function SettingsPage() {
+    const { user } = useAuth();
+
     const [workSchedule] = useState("Senin - Sabtu");
     const [dailyTarget] = useState(55);
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showAddDialog, setShowAddDialog] = useState(false);
-    const [addForm, setAddForm] = useState({
+    const [editForm, setEditForm] = useState<UserFormRequest>({
         fullName: "",
         username: "",
         email: "",
         password: "",
         role: "",
-        accessLevel: "",
+        subRole: "",
     });
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const [showEditDialog, setShowEditDialog] = useState(false);
-    const [editForm, setEditForm] = useState({
-        id: 0,
-        fullName: "",
-        username: "",
-        email: "",
-        password: "",
-        role: "",
-        accessLevel: "",
-    });
     const [editError, setEditError] = useState<string | null>(null);
     const [showAddPassword, setShowAddPassword] = useState(false);
     const [showEditPassword, setShowEditPassword] = useState(false);
-
-    const accessLevelOptions: { [key: string]: { value: string; label: string }[] } = {
-        kepala_gudang: [
-            { value: 'editor', label: 'Editor' },
-            { value: 'viewer', label: 'Viewer' },
-        ],
-        operasional: [
-            { value: 'viewer', label: 'Viewer' },
-        ],
-        admin_logistik: [
-            { value: 'viewer', label: 'Viewer' },
-        ],
-    };
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -103,8 +85,10 @@ export default function SettingsPage() {
             }
         };
 
-        fetchUsers();
-    }, []);
+        if (user?.role === ROLES.KEPALA_GUDANG) {
+            fetchUsers();
+        }
+    }, [user?.role]);
 
     const handleOpenDeleteDialog = (user: User) => {
         setUserToDelete(user);
@@ -136,17 +120,17 @@ export default function SettingsPage() {
         setLoading(true);
         setError(null);
         try {
-            const res = await createUser(addForm);
+            const res = await createUser(editForm);
             if (res?.data) {
                 setUsers([...users, res.data]);
                 setShowAddDialog(false);
-                setAddForm({
+                setEditForm({
                     fullName: "",
                     username: "",
                     email: "",
                     password: "",
                     role: "",
-                    accessLevel: "",
+                    subRole: "",
                 });
             } else {
                 setError(res?.message || 'Gagal menambahkan pengguna.');
@@ -158,19 +142,6 @@ export default function SettingsPage() {
         }
     };
 
-    const handleRoleChange = (role: string) => {
-        setAddForm(f => ({ ...f, role, accessLevel: accessLevelOptions[role][0].value })); // reset accessLevel when role changes
-    };
-
-    const getRoleDisplay = (roleName: string) => {
-        const roleMap: { [key: string]: string } = {
-            'kepala_gudang': 'Kepala Gudang',
-            'operasional': 'Operasional',
-            'admin_logistik': 'Admin Logistik'
-        };
-        return roleMap[roleName] || roleName;
-    };
-
     const handleOpenEditDialog = (user: User) => {
         setEditForm({
             id: user.id,
@@ -178,7 +149,7 @@ export default function SettingsPage() {
             username: user.username,
             email: user.email,
             role: user.role.name,
-            accessLevel: accessLevelOptions[user.role.name][0].value,
+            subRole: user.subRole.name,
             password: '',
         });
         setEditError(null);
@@ -186,19 +157,31 @@ export default function SettingsPage() {
     };
 
     const handleEditRoleChange = (role: string) => {
-        setEditForm(f => ({ ...f, role, accessLevel: accessLevelOptions[role][0].value }));
+        setEditForm(f => ({ ...f, role }));
+
+        if (role !== ROLES.OPERASIONAL) {
+            setEditForm(f => ({ ...f, subRole: '' }));
+        }
+    };
+
+    const handleEditSubRoleChange = (subRole: string) => {
+        setEditForm(f => ({ ...f, subRole }));
     };
 
     const handleEditUser = async () => {
         setLoading(true);
         setEditError(null);
         try {
+            if (!editForm.id) {
+                throw new Error('User ID is required');
+            }
+
             const res = await updateUser(editForm.id, {
                 fullName: editForm.fullName,
                 username: editForm.username,
                 email: editForm.email,
                 role: editForm.role,
-                accessLevel: editForm.accessLevel,
+                subRole: editForm.subRole,
             });
             if (res?.data) {
                 setUsers(users.map(u => u.id === editForm.id ? { ...u, ...res.data } : u));
@@ -214,7 +197,7 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="px-8 max-w-7xl mx-auto">
+        <div className="px-8 max-w-7xl mx-auto min-h-screen">
             <h1 className="text-3xl font-bold mb-1">Pengaturan</h1>
             <p className="text-gray-600 mb-6">Kelola pengaturan sistem dan pengguna</p>
 
@@ -233,180 +216,199 @@ export default function SettingsPage() {
                 </div>
             </Card>
 
-            {/* User Management */}
-            <Card className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">Manajemen Pengguna</h2>
-                    <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-                        <DialogTrigger asChild>
-                            <Button
-                                onClick={() => setShowAddDialog(true)}
-                                className="font-semibold text-base px-6 py-2"
-                            >
-                                <Plus className="w-4 h-4 mr-2" />
-                                Tambah Pengguna
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Tambah Pengguna</DialogTitle>
-                            </DialogHeader>
-                            {error && (
-                                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg">
-                                    <p className="font-medium">Error</p>
-                                    <p className="text-sm">{error}</p>
-                                </div>
-                            )}
-                            <form className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500 mb-1">Nama Lengkap</label>
-                                    <Input placeholder="Nama Lengkap" value={addForm.fullName} onChange={e => setAddForm(f => ({ ...f, fullName: e.target.value }))} />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500 mb-1">Username</label>
-                                    <Input placeholder="Username" value={addForm.username} onChange={e => setAddForm(f => ({ ...f, username: e.target.value }))} />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
-                                    <Input type="email" placeholder="Email" value={addForm.email} onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))} />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500 mb-1">Password</label>
-                                    <div className="relative">
-                                        <Input 
-                                            type={showAddPassword ? "text" : "password"} 
-                                            placeholder="Password" 
-                                            value={addForm.password} 
-                                            onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))} 
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                            onClick={() => setShowAddPassword(!showAddPassword)}
-                                        >
-                                            {showAddPassword ? (
-                                                <Eye className="h-4 w-4 text-gray-500" />
-                                            ) : (
-                                                <EyeOff className="h-4 w-4 text-gray-500" />
-                                            )}
-                                        </Button>
+            {user?.role === ROLES.KEPALA_GUDANG && (
+                <Card className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold">Manajemen Pengguna</h2>
+                        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+                            <DialogTrigger asChild>
+                                <Button
+                                    onClick={() => setShowAddDialog(true)}
+                                    className="font-semibold text-base px-6 py-2"
+                                >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Tambah Pengguna
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Tambah Pengguna</DialogTitle>
+                                </DialogHeader>
+                                {error && (
+                                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg">
+                                        <p className="font-medium">Error</p>
+                                        <p className="text-sm">{error}</p>
                                     </div>
-                                </div>
-                                <div className="flex gap-4">
-                                    <div className="w-1/2">
-                                        <label className="block text-sm font-medium text-gray-500 mb-1">Role</label>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-between">
-                                                    {addForm.role ? getRoleDisplay(addForm.role) : "Pilih Role"}
-                                                    <ChevronDown className="w-4 h-4 ml-2" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent className="w-full">
-                                                <DropdownMenuItem onClick={() => handleRoleChange('kepala_gudang')}>Kepala Gudang</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleRoleChange('operasional')}>Operasional</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleRoleChange('admin_logistik')}>Admin Logistik</DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                )}
+                                <form className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-500 mb-1">Nama Lengkap</label>
+                                        <Input placeholder="Nama Lengkap" value={editForm.fullName} onChange={e => setEditForm(f => ({ ...f, fullName: e.target.value }))} />
                                     </div>
-                                    <div className="w-1/2">
-                                        <label className="block text-sm font-medium text-gray-500 mb-1">Access Level</label>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-between" disabled>
-                                                    {addForm.role ? accessLevelOptions[addForm.role][0].label : "Access Level"}
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                        </DropdownMenu>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-500 mb-1">Username</label>
+                                        <Input placeholder="Username" value={editForm.username} onChange={e => setEditForm(f => ({ ...f, username: e.target.value }))} />
                                     </div>
-                                </div>
-                            </form>
-                            <DialogFooter>
-                                <DialogClose asChild>
-                                    <Button type="button" variant="secondary">Batal</Button>
-                                </DialogClose>
-                                <Button type="button" onClick={handleAddUser} disabled={!addForm.fullName || !addForm.username || !addForm.email || !addForm.password || !addForm.role || !addForm.accessLevel}>Simpan</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                </div>
-
-                {error && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg">
-                        <p className="font-medium">Error</p>
-                        <p className="text-sm">{error}</p>
-                    </div>
-                )}
-
-                <div className="overflow-x-auto rounded-lg border bg-white">
-                    {loading ? (
-                        <div className="p-8 text-center">
-                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                            <p className="mt-2 text-gray-500">Memuat data pengguna...</p>
-                        </div>
-                    ) : users.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">
-                            Tidak ada data pengguna
-                        </div>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-gray-50">
-                                    <TableHead className="py-3 font-medium text-gray-500">Nama</TableHead>
-                                    <TableHead className="py-3 font-medium text-gray-500">Email</TableHead>
-                                    <TableHead className="py-3 font-medium text-gray-500">Role</TableHead>
-                                    <TableHead className="py-3 font-medium text-gray-500">Username</TableHead>
-                                    <TableHead className="py-3 font-medium text-gray-500 text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {users.map((user) => (
-                                    <TableRow key={user.id}>
-                                        <TableCell className="font-medium">{user.fullName}</TableCell>
-                                        <TableCell>{user.email}</TableCell>
-                                        <TableCell>
-                                            <span className="px-2 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-600">
-                                                {getRoleDisplay(user.role.name)}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>{user.username}</TableCell>
-                                        <TableCell className="text-right flex gap-2 justify-end">
-                                            <Button size="sm" onClick={() => handleOpenEditDialog(user)}>Edit</Button>
-                                            <AlertDialog open={showDeleteDialog && userToDelete?.id === user.id} onOpenChange={setShowDeleteDialog}>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button size="sm" variant="destructive" onClick={() => handleOpenDeleteDialog(user)}>Delete</Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Hapus Pengguna?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Apakah Anda yakin ingin menghapus pengguna <b>{userToDelete?.fullName}</b>?
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    {deleteError && (
-                                                        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg">
-                                                            <p className="font-medium">Error</p>
-                                                            <p className="text-sm">{deleteError}</p>
-                                                        </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
+                                        <Input type="email" placeholder="Email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-500 mb-1">Password</label>
+                                        <div className="relative">
+                                            <Input
+                                                type={showAddPassword ? "text" : "password"}
+                                                placeholder="Password"
+                                                value={editForm.password}
+                                                onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))}
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                onClick={() => setShowAddPassword(!showAddPassword)}
+                                            >
+                                                {showAddPassword ? (
+                                                    <Eye className="h-4 w-4 text-gray-500" />
+                                                ) : (
+                                                    <EyeOff className="h-4 w-4 text-gray-500" />
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <div className="w-1/2">
+                                            <label className="block text-sm font-medium text-gray-500 mb-1">Role</label>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between">
+                                                        {editForm.role ? ROLES_NAME[editForm.role as keyof typeof ROLES_NAME] : "Pilih Role"}
+                                                        <ChevronDown className="w-4 h-4 ml-2" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent className="w-full">
+                                                    <DropdownMenuItem onClick={() => handleEditRoleChange(ROLES.KEPALA_GUDANG)}>Kepala Gudang</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleEditRoleChange(ROLES.OPERASIONAL)}>Operasional</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleEditRoleChange(ROLES.ADMIN_LOGISTIK)}>Admin Logistik</DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                        <div className="w-1/2">
+                                            <label className="block text-sm font-medium text-gray-500 mb-1">Sub Role</label>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between" disabled={editForm.role !== ROLES.OPERASIONAL}>
+                                                        {editForm.subRole ? SUB_ROLES_NAME[editForm.subRole as keyof typeof SUB_ROLES_NAME] : "Pilih Sub Role"}
+                                                        <ChevronDown className="w-4 h-4 ml-2" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent className="w-full">
+                                                    {editForm.role === ROLES.OPERASIONAL && (
+                                                        <>
+                                                            <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.LEADER_INCOMING)}>Leader Incoming</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.GOOD_RECEIVE)}>Good Receive</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.QUALITY_INSPECTION)}>Quality Inspection</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.BINNING)}>Binning</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.LEADER_OUTGOING)}>Leader Outgoing</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.PICKING)}>Picking</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.QUALITY_CONTROL)}>Quality Control</DropdownMenuItem>
+                                                        </>
                                                     )}
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={handleDeleteUser} disabled={loading} className="bg-red-600 text-white hover:bg-red-700">
-                                                            Hapus
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                    </div>
+                                </form>
+                                <DialogFooter>
+                                    <DialogClose asChild>
+                                        <Button type="button" variant="secondary">Batal</Button>
+                                    </DialogClose>
+                                    <Button type="button" onClick={handleAddUser}
+                                        disabled={!editForm.fullName || !editForm.username || !editForm.email || !editForm.password || !editForm.role || (editForm.role === ROLES.OPERASIONAL && !editForm.subRole)}
+                                    >Simpan</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+
+                    {error && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg">
+                            <p className="font-medium">Error</p>
+                            <p className="text-sm">{error}</p>
+                        </div>
                     )}
-                </div>
-            </Card>
+
+                    <div className="overflow-x-auto rounded-lg border bg-white">
+                        {loading ? (
+                            <div className="p-8 text-center">
+                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                <p className="mt-2 text-gray-500">Memuat data pengguna...</p>
+                            </div>
+                        ) : users.length === 0 ? (
+                            <div className="p-8 text-center text-gray-500">
+                                Tidak ada data pengguna
+                            </div>
+                        ) : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-gray-50">
+                                        <TableHead className="py-3 font-medium text-gray-500">Nama</TableHead>
+                                        <TableHead className="py-3 font-medium text-gray-500">Email</TableHead>
+                                        <TableHead className="py-3 font-medium text-gray-500">Role</TableHead>
+                                        <TableHead className="py-3 font-medium text-gray-500">Username</TableHead>
+                                        <TableHead className="py-3 font-medium text-gray-500 text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {users.map((user) => (
+                                        <TableRow key={user.id}>
+                                            <TableCell className="font-medium">{user.fullName}</TableCell>
+                                            <TableCell>{user.email}</TableCell>
+                                            <TableCell>
+                                                <span className="px-2 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-600">
+                                                    {ROLES_NAME[user.role.name as keyof typeof ROLES_NAME]}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>{user.username}</TableCell>
+                                            <TableCell className="text-right flex gap-2 justify-end">
+                                                <Button size="sm" onClick={() => handleOpenEditDialog(user)}>Edit</Button>
+                                                <AlertDialog open={showDeleteDialog && userToDelete?.id === user.id} onOpenChange={setShowDeleteDialog}>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button size="sm" variant="destructive" onClick={() => handleOpenDeleteDialog(user)}>Delete</Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Hapus Pengguna?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Apakah Anda yakin ingin menghapus pengguna <b>{userToDelete?.fullName}</b>?
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        {deleteError && (
+                                                            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg">
+                                                                <p className="font-medium">Error</p>
+                                                                <p className="text-sm">{deleteError}</p>
+                                                            </div>
+                                                        )}
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={handleDeleteUser} disabled={loading} className="bg-red-600 text-white hover:bg-red-700">
+                                                                Hapus
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
+                    </div>
+                </Card>
+            )
+            }
+
 
             <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
                 <DialogContent>
@@ -436,10 +438,10 @@ export default function SettingsPage() {
                         <div>
                             <label className="block text-sm font-medium text-gray-500 mb-1">Password</label>
                             <div className="relative">
-                                <Input 
-                                    type={showEditPassword ? "text" : "password"} 
-                                    value={editForm.password} 
-                                    onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))} 
+                                <Input
+                                    type={showEditPassword ? "text" : "password"}
+                                    value={editForm.password}
+                                    onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))}
                                 />
                                 <Button
                                     type="button"
@@ -463,7 +465,7 @@ export default function SettingsPage() {
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="outline" className="w-full justify-between">
-                                            {editForm.role ? getRoleDisplay(editForm.role) : "Pilih Role"}
+                                            {editForm.role ? ROLES_NAME[editForm.role as keyof typeof ROLES_NAME] : "Pilih Role"}
                                             <ChevronDown className="w-4 h-4 ml-2" />
                                         </Button>
                                     </DropdownMenuTrigger>
@@ -475,19 +477,26 @@ export default function SettingsPage() {
                                 </DropdownMenu>
                             </div>
                             <div className="w-1/2">
-                                <label className="block text-sm font-medium text-gray-500 mb-1">Access Level</label>
+                                <label className="block text-sm font-medium text-gray-500 mb-1">Sub Role</label>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between" disabled>
-                                            {editForm.role ? accessLevelOptions[editForm.role][0].label : "Access Level"}
+                                        <Button variant="outline" className="w-full justify-between" disabled={editForm.role !== ROLES.OPERASIONAL}>
+                                            {editForm.subRole ? SUB_ROLES_NAME[editForm.subRole as keyof typeof SUB_ROLES_NAME] : "Pilih Sub Role"}
+                                            <ChevronDown className="w-4 h-4 ml-2" />
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent className="w-full">
-                                        {(accessLevelOptions[editForm.role] || []).map(opt => (
-                                            <DropdownMenuItem key={opt.value} onClick={() => setEditForm(f => ({ ...f, accessLevel: opt.value }))}>
-                                                {opt.label}
-                                            </DropdownMenuItem>
-                                        ))}
+                                        {editForm.role === ROLES.OPERASIONAL && (
+                                            <>
+                                                <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.LEADER_INCOMING)}>Leader Incoming</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.GOOD_RECEIVE)}>Good Receive</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.QUALITY_INSPECTION)}>Quality Inspection</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.BINNING)}>Binning</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.LEADER_OUTGOING)}>Leader Outgoing</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.PICKING)}>Picking</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleEditSubRoleChange(SUB_ROLES.QUALITY_CONTROL)}>Quality Control</DropdownMenuItem>
+                                            </>
+                                        )}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
@@ -497,7 +506,7 @@ export default function SettingsPage() {
                         <DialogClose asChild>
                             <Button type="button" variant="secondary">Batal</Button>
                         </DialogClose>
-                        <Button type="button" onClick={handleEditUser} disabled={!editForm.fullName || !editForm.username || !editForm.email || !editForm.role || !editForm.accessLevel || loading}>Simpan</Button>
+                        <Button type="button" onClick={handleEditUser} disabled={!editForm.fullName || !editForm.username || !editForm.email || !editForm.role || (editForm.role === ROLES.OPERASIONAL && !editForm.subRole) || loading}>Simpan</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

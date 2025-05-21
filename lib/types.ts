@@ -60,12 +60,26 @@ export interface Role {
   name: string;
 }
 
+export interface SubRole {
+  id: number;
+  name: string;
+}
+
+export interface UserAuth {
+  id: number;
+  username: string;
+  fullName: string;
+  email: string;
+  role: string;
+}
+
 export interface User {
   id: number;
   username: string;
   fullName: string;
   email: string;
   role: Role;
+  subRole: SubRole;
   createdAt: string;
   updatedAt: string;
 }
@@ -84,6 +98,7 @@ export interface DailyLog {
     operatorId: number;
     operatorName: string;
     operatorRole: string;
+    operatorSubRole: string;
   }[];
 }
 
@@ -101,6 +116,7 @@ export interface DailyLogDetail {
     operatorId: number;
     operatorName: string;
     operatorRole: string;
+    operatorSubRole: string;
   }[];
   workNotes: string;
   createdAt: string;
@@ -165,4 +181,14 @@ export interface ReportMeta {
 export interface ReportData {
   meta: ReportMeta;
   data: ReportDataPoint[];
+}
+
+export interface UserFormRequest {
+  id?: number;
+  username: string;
+  fullName: string;
+  email: string;
+  password: string;
+  role: string;
+  subRole: string;
 }

@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { postLogin } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
 
 export default function LoginPage() {
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
@@ -12,23 +14,24 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-
+  const { login } = useAuth();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usernameOrEmail, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Login failed");
-      localStorage.setItem("accessToken", data.data.accessToken);
-      localStorage.setItem("refreshToken", data.data.refreshToken);
-      localStorage.setItem("userData", JSON.stringify(data.data.user));
-      router.push("/");
+      const response = await postLogin({ usernameOrEmail, password });
+      
+      if (response.success) {
+        localStorage.setItem("accessToken", response.data.accessToken);
+        localStorage.setItem("refreshToken", response.data.refreshToken);
+
+        login(response.data.user);
+        router.push("/");
+      } else {
+        setError(response.message);
+      }
+
     } catch (err: any) {
       setError(err.message);
     } finally {

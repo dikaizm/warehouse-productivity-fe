@@ -22,6 +22,7 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import annotationPlugin from 'chartjs-plugin-annotation';
+import { Table, TableHeader, TableBody, TableCell, TableRow, TableHead } from "@/components/ui/table"
 
 // Register ChartJS components
 ChartJS.register(
@@ -256,29 +257,34 @@ export default function Dashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left">
-                      <th className="pb-4 font-normal text-gray-500">Tanggal</th>
-                      <th className="pb-4 font-normal text-gray-500">Binning</th>
-                      <th className="pb-4 font-normal text-gray-500">Picking</th>
-                      <th className="pb-4 font-normal text-gray-500">Total Karyawan</th>
-                      <th className="pb-4 font-normal text-gray-500">Karyawan Hadir</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <div className="overflow-x-auto rounded-lg border bg-white">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50">
+                      <TableHead className="py-3 font-medium text-gray-500">Tanggal</TableHead>
+                      <TableHead className="py-3 font-normal text-gray-500">Binning</TableHead>
+                      <TableHead className="py-3 font-normal text-gray-500">Picking</TableHead>
+                      <TableHead className="py-3 font-normal text-gray-500">Total Karyawan</TableHead>
+                      <TableHead className="py-3 font-normal text-gray-500">Karyawan Hadir</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {recentLogsData?.map((item: RecentLogResponse, index: number) => (
-                      <tr key={index} className="border-t">
-                        <td className="py-4">{new Date(item.logDate).toLocaleDateString()}</td>
-                        <td className="py-4">{item.binningCount}</td>
-                        <td className="py-4">{item.pickingCount}</td>
-                        <td className="py-4">{item.totalWorkers}</td>
-                        <td className="py-4">{item.attendance.length}</td>
-                      </tr>
+                      <TableRow key={index}>
+                        <TableCell className="py-4">{new Date(item.logDate).toLocaleDateString()}</TableCell>
+                        <TableCell className="py-4">{item.binningCount}</TableCell>
+                        <TableCell className="py-4">{item.pickingCount}</TableCell>
+                        <TableCell className="py-4">{item.totalWorkers}</TableCell>
+                        <TableCell className="py-4">{item.attendance.length}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                    {recentLogsData?.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center py-8 text-gray-400">No data</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>

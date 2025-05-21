@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { format as formatDate, addDays } from "date-fns";
 import { getReportExport, getReportFilter } from "@/lib/api";
 import { ReportData, ReportType } from "@/lib/types";
+import { useAuth } from "@/context/auth-context";
+import { ROLES } from "@/lib/constants";
 
 const MOCK_DATA = [
   { date: "2022-07-22", operator: "John Doe", binning: 120, picking: 100, total: 220, productivity: 0.85 },
@@ -30,6 +32,8 @@ const REPORT_TYPES = [
 ];
 
 export default function ReportPage() {
+  const { user } = useAuth();
+
   const [search, setSearch] = useState("");
 
   const [reportType, setReportType] = useState(REPORT_TYPES[0].value);
@@ -254,17 +258,21 @@ export default function ReportPage() {
         </div> */}
 
 
-        <div className="mb-6">
-          <div className="font-medium text-gray-600 mb-2">Format</div>
-          <div className="flex gap-2">
-            <Button variant={exportFormat === "csv" ? "default" : "outline"} onClick={() => setExportFormat("csv")}>CSV</Button>
-            <Button variant={exportFormat === "pdf" ? "default" : "outline"} onClick={() => setExportFormat("pdf")}>PDF</Button>
-          </div>
-        </div>
-        {/* Actions */}
-        <div className="flex gap-2">
-          <Button className="w-full" onClick={() => handleExport()}>Export</Button>
-        </div>
+        {user?.role === ROLES.KEPALA_GUDANG && (
+          <>
+            <div className="mb-6">
+              <div className="font-medium text-gray-600 mb-2">Format</div>
+              <div className="flex gap-2">
+                <Button variant={exportFormat === "csv" ? "default" : "outline"} onClick={() => setExportFormat("csv")}>CSV</Button>
+                <Button variant={exportFormat === "pdf" ? "default" : "outline"} onClick={() => setExportFormat("pdf")}>PDF</Button>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button className="w-full" onClick={() => handleExport()}>Export</Button>
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );
