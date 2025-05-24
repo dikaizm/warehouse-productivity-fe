@@ -301,9 +301,6 @@ export default function InsightsPage() {
       tooltip: {
         callbacks: {
           label: function (ctx: any) {
-            // ctx.dataset.label = operator name
-            // ctx.label = x-axis label (time point)
-            // ctx.raw = value
             return `${ctx.dataset.label}: ${ctx.raw.toLocaleString('id-ID')}`;
           },
         },
@@ -467,7 +464,7 @@ export default function InsightsPage() {
           </CardHeader>
           <CardContent>
             <div className="w-full overflow-x-auto">
-              <div style={{ minWidth: filterPerformance.type === 'weekly' ? 6000 : 800, minHeight: 400 }}>
+              <div style={{ minWidth: filterPerformance.type === 'weekly' ? 6000 : 1200, minHeight: 400 }}>
                 <Bar data={barData} options={barOptions} />
               </div>
             </div>

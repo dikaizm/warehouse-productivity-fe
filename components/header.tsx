@@ -24,19 +24,16 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { ROLES_NAME } from "@/lib/constants";
+import { ROLES_NAME, STORAGE_KEYS } from "@/lib/constants";
 import { useAuth } from "@/context/auth-context";
 
 export default function Header() {
-  const router = useRouter();
+  const { logout } = useAuth();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const { user } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    router.push("/login");
+    logout();
   };
 
   return (
@@ -49,12 +46,6 @@ export default function Header() {
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {/* <Button variant="outline" size="icon" className="rounded-full bg-white">
-          <Search className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" size="icon" className="rounded-full bg-white">
-          <Bell className="h-4 w-4" />
-        </Button> */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="rounded-full bg-white">

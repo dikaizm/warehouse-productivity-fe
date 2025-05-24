@@ -3,23 +3,105 @@ import { ReportFilterParams } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export const validateToken = () => {
-  const token = localStorage.getItem("accessToken");
-  if (!token) {
-    window.location.href = '/login';
-    return false;
+// Create an API client class to handle token refresh
+class ApiClient {
+  private static instance: ApiClient;
+  private refreshPromise: Promise<string | null> | null = null;
+
+  private constructor() {}
+
+  static getInstance(): ApiClient {
+    if (!ApiClient.instance) {
+      ApiClient.instance = new ApiClient();
+    }
+    return ApiClient.instance;
   }
-  return true;
-};
+
+  private async refreshToken(): Promise<string | null> {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) return null;
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/refresh-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${refreshToken}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to refresh token');
+      }
+
+      const data = await response.json();
+      if (data.accessToken) {
+        localStorage.setItem('accessToken', data.accessToken);
+        if (data.refreshToken) {
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
+        return data.accessToken;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      window.location.href = '/login';
+      return null;
+    }
+  }
+
+  private async getValidToken(): Promise<string | null> {
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+      window.location.href = '/login';
+      return null;
+    }
+    return accessToken;
+  }
+
+  async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+    const accessToken = await this.getValidToken();
+    if (!accessToken) {
+      throw new Error('No access token found');
+    }
+
+    // Add authorization header
+    const headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${accessToken}`
+    };
+
+    // Make the initial request
+    let response = await fetch(url, { ...options, headers });
+
+    // If unauthorized, try to refresh the token
+    if (response.status === 401) {
+      // Ensure only one refresh request is made at a time
+      if (!this.refreshPromise) {
+        this.refreshPromise = this.refreshToken();
+      }
+      
+      const newAccessToken = await this.refreshPromise;
+      this.refreshPromise = null; // Reset the promise
+
+      if (newAccessToken) {
+        // Retry the request with the new token
+        headers['Authorization'] = `Bearer ${newAccessToken}`;
+        response = await fetch(url, { ...options, headers });
+      } else {
+        throw new Error('Session expired. Please login again.');
+      }
+    }
+
+    return response;
+  }
+}
+
+const apiClient = ApiClient.getInstance();
 
 const handleResponse = async (res: Response) => {
-  if (res.status === 401) {
-    // Token expired or invalid
-    localStorage.removeItem("accessToken");
-    window.location.href = '/login';
-    throw new Error('Session expired. Please login again.');
-  }
-
   if (!res.ok) {
     const text = await res.text();
     try {
@@ -33,7 +115,6 @@ const handleResponse = async (res: Response) => {
   }
 
   const result = await res.json();
-
   return result;
 };
 
@@ -41,7 +122,7 @@ export const postLogin = async (data: {
   usernameOrEmail: string;
   password: string;
 }) => {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -53,48 +134,27 @@ export const postLogin = async (data: {
   }
 
   return handleResponse(res);
-}
+};
 
 export const getOverviewCount = async () => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/overview/counts`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/overview/counts`);
   return handleResponse(res);
 };
 
 export const getOverviewTrend = async () => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/overview/trend`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/overview/trend`);
   return handleResponse(res);
 };
 
 export const getRecentLogs = async (page = 1, limit = 10) => {
-  if (!validateToken()) return;
-  const res = await fetch(
-    `${API_URL}/api/overview/recent-logs?page=${page}&limit=${limit}`,
-    {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-      },
-    }
+  const res = await apiClient.fetchWithAuth(
+    `${API_URL}/api/overview/recent-logs?page=${page}&limit=${limit}`
   );
   return handleResponse(res);
 };
 
 export const getBarProductivity = async () => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/overview/bar-productivity`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/overview/bar-productivity`);
   return handleResponse(res);
 };
 
@@ -105,13 +165,9 @@ export const createDailyInput = async (data: {
   isPresent: boolean;
   notes?: string;
 }) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/daily-input`, {
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/daily-input`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   return handleResponse(res);
@@ -125,13 +181,9 @@ export const postDailyLog = async (data: {
   workerPresents: number[];
   workNotes?: string;
 }) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/daily-logs`, {
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/daily-logs`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   return handleResponse(res);
@@ -144,7 +196,6 @@ export const getDailyLogs = async (params: {
   dateRange?: DateRange;
   sort?: { key: string; direction: 'asc' | 'desc' };
 }) => {
-  if (!validateToken()) return;
   const url = new URL(`${API_URL}/api/daily-logs`);
   url.searchParams.append('page', params.page?.toString() || '1');
   url.searchParams.append('limit', params.limit?.toString() || '10');
@@ -154,22 +205,11 @@ export const getDailyLogs = async (params: {
 
   if (params.dateRange) {
     url.searchParams.append('startDate', params.dateRange.from?.toISOString() || '');
-
-    if (params.dateRange.to) {
-      url.searchParams.append('endDate', params.dateRange.to?.toISOString() || '');
-    } else {
-      url.searchParams.append('endDate', params.dateRange.from?.toISOString() || '');
-    }
+    url.searchParams.append('endDate', params.dateRange.to?.toISOString() || params.dateRange.from?.toISOString() || '');
   }
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
-
-  const result = await handleResponse(res);
-  return result;
+  const res = await apiClient.fetchWithAuth(url.toString());
+  return handleResponse(res);
 };
 
 interface GetUsersParams {
@@ -178,13 +218,7 @@ interface GetUsersParams {
 }
 
 export const getDailyLogById = async (id: number) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/daily-logs/${id}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/daily-logs/${id}`);
   return handleResponse(res);
 };
 
@@ -194,35 +228,23 @@ export const updateDailyLog = async (id: number, data: {
   workerPresents: number[];
   workNotes?: string;
 }) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/daily-logs/${id}`, {
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/daily-logs/${id}`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-
   return handleResponse(res);
-}
-
+};
 
 export const deleteDailyLog = async (id: number) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/daily-logs/${id}`, {
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/daily-logs/${id}`, {
     method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
   });
   return handleResponse(res);
 };
 
 export const getUsers = async (params?: GetUsersParams) => {
-  if (!validateToken()) return;
   const url = new URL(`${API_URL}/api/users`);
-
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value) {
@@ -230,23 +252,12 @@ export const getUsers = async (params?: GetUsersParams) => {
       }
     });
   }
-
-  const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
-
+  const res = await apiClient.fetchWithAuth(url.toString());
   return handleResponse(res);
 };
 
 export const getTopPerformers = async (search?: string) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/top-performers?search=${search}`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/top-performers?search=${search}`);
 
   const result = await handleResponse(res);
   return result.data;
@@ -260,13 +271,9 @@ export const createUser = async (data: {
   role: string;
   subRole: string;
 }) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/users`, {
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/users`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   return handleResponse(res);
@@ -279,93 +286,61 @@ export const updateUser = async (id: number, data: {
   role: string;
   subRole: string;
 }) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/users/${id}`, {
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/users/${id}`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   return handleResponse(res);
 };
 
 export const deleteUser = async (id: number) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/users/${id}`, {
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/users/${id}`, {
     method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
   });
   return handleResponse(res);
 };
 
 export const getWorkerPresent = async () => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/insights/worker-present`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
+  const res = await apiClient.fetchWithAuth(`${API_URL}/api/insights/worker-present`);
   return handleResponse(res);
 };
 
 export const getTrendItem = async (startDate: string, endDate: string) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/insights/trend-item?startDate=${startDate}&endDate=${endDate}`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
+  const res = await apiClient.fetchWithAuth(
+    `${API_URL}/api/insights/trend-item?startDate=${startDate}&endDate=${endDate}`
+  );
   return handleResponse(res);
 };
 
 export const getWorkerPerformance = async (type: string, year: number) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/insights/worker-performance?type=${type}&year=${year}`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
+  const res = await apiClient.fetchWithAuth(
+    `${API_URL}/api/insights/worker-performance?type=${type}&year=${year}`
+  );
   return handleResponse(res);
 };
 
 export const getReportFilter = async (params: ReportFilterParams) => {
-  if (!validateToken()) return;
-  const res = await fetch(`${API_URL}/api/reports/filter?startDate=${params.startDate}&endDate=${params.endDate}&type=${params.type}&search=${params.search}`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
+  const url = new URL(`${API_URL}/api/reports/filter`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      url.searchParams.append(key, value);
+    }
   });
+  const res = await apiClient.fetchWithAuth(url.toString());
   return handleResponse(res);
 };
 
 export const getReportExport = async (params: ReportFilterParams) => {
-  if (!validateToken()) return;
   const url = new URL(`${API_URL}/api/reports/export`);
-
-  // Add query parameters
   Object.entries(params).forEach(([key, value]) => {
     if (value) {
       url.searchParams.append(key, value);
     }
   });
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
-
-  // For file downloads, we don't want to parse as JSON
-  if (res.status === 401) {
-    localStorage.removeItem("accessToken");
-    window.location.href = '/login';
-    throw new Error('Session expired. Please login again.');
-  }
-
+  const res = await apiClient.fetchWithAuth(url.toString());
+  
   if (!res.ok) {
     const text = await res.text();
     try {
@@ -376,6 +351,5 @@ export const getReportExport = async (params: ReportFilterParams) => {
     }
   }
 
-  // Return the response directly for file downloads
   return res;
 };

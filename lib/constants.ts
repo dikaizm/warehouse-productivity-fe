@@ -39,3 +39,10 @@ export const TEAM_CATEGORY_NAME = {
     [TEAM_CATEGORY.BINNING]: 'Binning',
     [TEAM_CATEGORY.PICKING]: 'Picking',
 } as const;
+
+// Storage keys
+export const STORAGE_KEYS = {
+    USER: 'userData',
+    ACCESS_TOKEN: 'accessToken',
+    REFRESH_TOKEN: 'refreshToken',
+} as const;

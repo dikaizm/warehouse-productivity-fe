@@ -14,18 +14,25 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const { login, user } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
-    // If user is already logged in, redirect to home page
-    if (user) {
-      router.push('/');
+    // Only redirect if we're not already redirecting and the user is loaded
+    if (!authLoading && user && !isRedirecting) {
+      setIsRedirecting(true);
+      // Use replace instead of push to prevent back button from returning to login
+      router.replace('/');
     }
-  }, [user, router]);
+  }, [user, authLoading, router, isRedirecting]);
 
-  // If user is logged in, don't render the login form
-  if (user) {
-    return null;
+  // Show nothing while loading or redirecting
+  if (authLoading || isRedirecting || user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,17 +43,20 @@ export default function LoginPage() {
       const response = await postLogin({ usernameOrEmail, password });
       
       if (response.success) {
-        localStorage.setItem("accessToken", response.data.accessToken);
-        localStorage.setItem("refreshToken", response.data.refreshToken);
-
-        login(response.data.user);
-        router.push("/");
+        // Store tokens and user data
+        const { accessToken, refreshToken, user } = response.data;
+        
+        // Login through auth context which will handle storage
+        login(user, { accessToken, refreshToken });
+        
+        // Use replace instead of push to prevent back button from returning to login
+        router.replace("/");
       } else {
-        setError(response.message);
+        setError(response.message || "Login failed");
       }
 
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "An error occurred during login");
     } finally {
       setLoading(false);
     }
