@@ -14,12 +14,16 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { postDailyLog, getUsers } from '@/lib/api';
 import { User } from "@/lib/types";
-import { SUB_ROLES, SUB_ROLES_NAME } from "@/lib/constants";
+import { ROLES, SUB_ROLES_NAME } from "@/lib/constants";
+import { useAuth } from "@/context/auth-context";
+import { useRouter } from "next/navigation";
 
 export default function DailyLogsPage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [date, setDate] = useState<Date>();
-  const [binningCount, setBinningCount] = useState<number>(0);
-  const [pickingCount, setPickingCount] = useState<number>(0);
+  const [binningCount, setBinningCount] = useState<number | null>(null);
+  const [pickingCount, setPickingCount] = useState<number | null>(null);
   const [totalItems, setTotalItems] = useState<number>(0);
   const [selectedWorkers, setSelectedWorkers] = useState<number[]>([]);
   const [workNotes, setWorkNotes] = useState("");
@@ -30,10 +34,18 @@ export default function DailyLogsPage() {
   const [loadingWorkers, setLoadingWorkers] = useState(true);
 
   useEffect(() => {
+    const checkAccess = () => {
+      if (user?.role !== ROLES.KEPALA_GUDANG) {
+        router.push('/');
+        return false;
+      }
+      return true;
+    };
+
     const fetchWorkers = async () => {
       try {
         setLoadingWorkers(true);
-        const response = await getUsers({ role: 'operasional' });
+        const response = await getUsers({ role: ROLES.OPERASIONAL });
         if (response?.data && Array.isArray(response.data)) {
           console.log(response.data);
           setWorkers(response.data);
@@ -51,8 +63,10 @@ export default function DailyLogsPage() {
       }
     };
 
-    fetchWorkers();
-  }, []);
+    if (checkAccess()) {
+      fetchWorkers();
+    }
+  }, [user?.role, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,6 +101,11 @@ export default function DailyLogsPage() {
   useEffect(() => {
     setTotalItems(Number(binningCount) + Number(pickingCount));
   }, [binningCount, pickingCount]);
+
+  // If not kepala gudang, don't render the page content
+  if (user?.role !== ROLES.KEPALA_GUDANG) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -141,17 +160,9 @@ export default function DailyLogsPage() {
                   Item Binning
                 </Label>
                 <Input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={binningCount}
-                  onChange={(e) => {
-                    // Only allow digits
-                    const value = e.target.value.replace(/[^0-9]/g, '');
-                    // Remove leading zeros
-                    const cleanValue = value.replace(/^0+/, '');
-                    setBinningCount(cleanValue === '' ? 0 : Number(cleanValue));
-                  }}
+                  type="number"
+                  value={binningCount || ''}
+                  onChange={(e) => setBinningCount(Number(e.target.value))}
                   className="w-full h-14 px-5 text-base border-G300 placeholder:text-G500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   placeholder="0"
                 />
@@ -163,17 +174,9 @@ export default function DailyLogsPage() {
                   Item Picking
                 </Label>
                 <Input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={pickingCount}
-                  onChange={(e) => {
-                    // Only allow digits
-                    const value = e.target.value.replace(/[^0-9]/g, '');
-                    // Remove leading zeros
-                    const cleanValue = value.replace(/^0+/, '');
-                    setPickingCount(cleanValue === '' ? 0 : Number(cleanValue));
-                  }}
+                  type="number"
+                  value={pickingCount || ''}
+                  onChange={(e) => setPickingCount(Number(e.target.value))}
                   className="w-full h-14 px-5 text-base border-G300 placeholder:text-G500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   placeholder="0"
                 />
@@ -182,7 +185,7 @@ export default function DailyLogsPage() {
             <div className="w-full md:flex-1 flex flex-col justify-end items-start gap-1 md:gap-4">
               <div className="self-stretch min-w-40 flex flex-col justify-start items-start">
                 <Label className="pb-1 text-neutral-900 text-sm font-medium leading-tight">
-                  Total Target Item
+                  Total Item
                 </Label>
                 <Input
                   type="number"
@@ -262,7 +265,7 @@ export default function DailyLogsPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !date || !binningCount || !pickingCount || !selectedWorkers.length}
                 className="h-12 px-6 py-3.5 bg-blue-600 rounded-lg text-white text-base font-semibold hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading ? "Memuat..." : "Kirim"}

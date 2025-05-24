@@ -1,6 +1,5 @@
 import { DateRange } from "react-day-picker";
 import { ReportFilterParams } from "./types";
-import router from "next/router";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -168,7 +167,9 @@ export const getDailyLogs = async (params: {
       Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
     },
   });
-  return handleResponse(res);
+
+  const result = await handleResponse(res);
+  return result;
 };
 
 interface GetUsersParams {

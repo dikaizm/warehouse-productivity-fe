@@ -204,7 +204,7 @@ export default function Dashboard() {
               {/* Chart */}
               <Card className="mt-4">
                 <CardContent className="pt-6">
-                  <div className="text-sm mb-4">Item yang Diproses 7 Hari Terakhir</div>
+                  <div className="text-sm text-gray-500 mb-4">Item yang Diproses 7 Hari Terakhir</div>
                   <div className="h-64">
                     <BarChart data={barProductivityData} />
                   </div>

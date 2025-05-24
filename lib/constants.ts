@@ -29,3 +29,13 @@ export const SUB_ROLES_NAME = {
     [SUB_ROLES.PICKING]: 'Picking',
     [SUB_ROLES.QUALITY_CONTROL]: 'Quality Control',
 } as const;
+
+export const TEAM_CATEGORY = {
+    BINNING: 'binning',
+    PICKING: 'picking',
+} as const;
+
+export const TEAM_CATEGORY_NAME = {
+    [TEAM_CATEGORY.BINNING]: 'Binning',
+    [TEAM_CATEGORY.PICKING]: 'Picking',
+} as const;

@@ -7,6 +7,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Search } from "lucide-react";
 import type { TopPerformer } from "@/lib/types";
 import { getTopPerformers } from "@/lib/api";
+import { SUB_ROLES_NAME, TEAM_CATEGORY_NAME } from "@/lib/constants";
 
 export default function TopPerformersPage() {
     const [search, setSearch] = useState("");
@@ -27,7 +28,7 @@ export default function TopPerformersPage() {
                     <label className="block text-sm font-medium text-gray-500 mb-1">Cari</label>
                     <div className="relative max-w-md">
                         <Input
-                            placeholder="Search for a name"
+                            placeholder="Cari nama operator"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                             className="pl-10"
@@ -39,10 +40,11 @@ export default function TopPerformersPage() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-gray-100">
-                                <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Operator Name</TableHead>
-                                <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Average Monthly Productivity</TableHead>
-                                <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Average Monthly Workdays</TableHead>
-                                <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Achievement vs Target</TableHead>
+                                <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Operator</TableHead>
+                                <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Peran Operator</TableHead>
+                                <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Produktivitas Bulanan</TableHead>
+                                <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Hari Kerja Bulanan</TableHead>
+                                <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Pencapaian vs Target Bulanan</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -54,11 +56,12 @@ export default function TopPerformersPage() {
                                 performers.map((row, idx) => (
                                     <TableRow key={idx}>
                                         <TableCell>{row.operatorName}</TableCell>
-                                        <TableCell className="text-blue-500 font-medium">{row.avgMonthlyProductivity.toFixed(2)}</TableCell>
-                                        <TableCell className="text-blue-500 font-medium">{row.avgMonthlyWorkdays.toFixed(2)}</TableCell>
+                                        <TableCell>{TEAM_CATEGORY_NAME[row.operatorSubRole.teamCategory as keyof typeof TEAM_CATEGORY_NAME]} ({SUB_ROLES_NAME[row.operatorSubRole.name as keyof typeof SUB_ROLES_NAME]})</TableCell>
+                                        <TableCell className="text-blue-500 font-medium">{row.avgMonthlyProductivity}</TableCell>
+                                        <TableCell className="text-blue-500 font-medium">{row.avgMonthlyWorkdays}</TableCell>
                                         <TableCell>
                                             <span className={`px-2 py-1 rounded-full text-sm font-medium  ${row.productivity.avgActual >= row.productivity.target ? 'text-blue-600 bg-blue-50' : 'text-red-500 bg-red-50'}`}>
-                                                {row.productivity.avgActual.toFixed(2)} / {row.productivity.target}
+                                                {row.productivity.avgActual} / {row.productivity.target}
                                             </span>
                                         </TableCell>
                                     </TableRow>

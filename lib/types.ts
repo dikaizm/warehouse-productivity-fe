@@ -46,12 +46,17 @@ export interface RecentLogResponse {
 
 // Top Performers Table Type
 export interface TopPerformer {
+  operatorId: number;
   operatorName: string;
   avgMonthlyProductivity: number;
   avgMonthlyWorkdays: number;
   productivity: {
     avgActual: number;
     target: number;
+  };
+  operatorSubRole: {
+    name: string;
+    teamCategory: string;
   };
 }
 
@@ -90,10 +95,7 @@ export interface DailyLog {
   binningCount: number;
   pickingCount: number;
   totalItems: number;
-  productivity: {
-    actual: number;
-    target: number;
-  };
+  productivity: number;
   attendance: {
     operatorId: number;
     operatorName: string;
@@ -108,10 +110,7 @@ export interface DailyLogDetail {
   binningCount: number;
   pickingCount: number;
   totalItems: number;
-  productivity: {
-    actual: number;
-    target: number;
-  };
+  productivity: number;
   attendance: {
     operatorId: number;
     operatorName: string;
@@ -156,6 +155,7 @@ export interface ReportFilterParams {
   type: ReportType;
   search?: string;
   fileFormat?: 'csv' | 'pdf';
+  email: string;
 }
 
 export interface ReportDataPoint {

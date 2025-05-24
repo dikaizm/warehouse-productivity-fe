@@ -1,5 +1,7 @@
-import { User, UserAuth } from "@/lib/types";
+import { UserAuth } from "@/lib/types";
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Auth context type
 type AuthContextType = {
@@ -24,12 +26,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(true);
         // Try to get user from localStorage
         const storedUser = localStorage.getItem('user');
-        
+
         if (storedUser) {
           try {
             const parsedUser = JSON.parse(storedUser);
             setUser(parsedUser);
-            
+
             // Optionally verify token with backend
             // const response = await fetch('/api/verify-token', {
             //   headers: { Authorization: `Bearer ${parsedUser.token}` }
@@ -53,7 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const fetchUserFromAPI = async () => {
       try {
-        const response = await fetch('/api/me');
+        const response = await fetch(`${API_URL}/api/users/me`);
         if (response.ok) {
           const userData = await response.json();
           setUser(userData);
@@ -98,12 +100,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      setUser, 
+    <AuthContext.Provider value={{
+      user,
+      setUser,
       loading,
       login,
-      logout, 
+      logout,
       updateUser
     }}>
       {children}

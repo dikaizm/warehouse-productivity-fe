@@ -354,8 +354,8 @@ export default function DailyLogsPage() {
                                         <TableCell>{log.pickingCount}</TableCell>
                                         <TableCell>{log.totalItems}</TableCell>
                                         <TableCell>
-                                            <span className={`px-2 py-1 rounded-full text-sm font-medium ${log.productivity.actual >= log.productivity.target ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
-                                                {log.productivity.actual} / {log.productivity.target}
+                                            <span className="px-2 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-600">
+                                                {Math.round(log.productivity)}%
                                             </span>
                                         </TableCell>
                                         {user?.role === ROLES.KEPALA_GUDANG && (
@@ -389,7 +389,9 @@ export default function DailyLogsPage() {
                                                             </div>
                                                             <div>
                                                                 <span className="block text-xs text-gray-500">Produktivitas</span>
-                                                                <span className={`font-medium px-2 py-1 rounded ${log.productivity.actual >= log.productivity.target ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>{log.productivity.actual} / {log.productivity.target}</span>
+                                                                <span className="font-medium px-2 py-1 rounded bg-blue-50 text-blue-600">
+                                                                    {Math.round(log.productivity)}%
+                                                                </span>
                                                             </div>
                                                             <div>
                                                                 <span className="block text-xs text-gray-500 mb-1">Karyawan Hadir</span>

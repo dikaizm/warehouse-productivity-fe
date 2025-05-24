@@ -35,9 +35,10 @@ export default function ReportPage() {
   const { user } = useAuth();
 
   const [search, setSearch] = useState("");
+  const [exportStatus, setExportStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
 
   const [reportType, setReportType] = useState(REPORT_TYPES[0].value);
-  // const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("");
   const [exportFormat, setExportFormat] = useState<"csv" | "pdf">("csv");
   const [reportData, setReportData] = useState<ReportData>();
 
@@ -58,6 +59,7 @@ export default function ReportPage() {
       endDate: formatDate(dateRange.to, 'yyyy-MM-dd'),
       type: reportType as ReportType,
       search: search || '',
+      email: email,
     });
 
     if (res?.data) {
@@ -69,12 +71,14 @@ export default function ReportPage() {
     if (!dateRange.from || !dateRange.to || !reportData) return;
 
     try {
+      setExportStatus({ type: null, message: '' });
       const res = await getReportExport({
         startDate: formatDate(dateRange.from, 'yyyy-MM-dd'),
         endDate: formatDate(dateRange.to, 'yyyy-MM-dd'),
         type: reportType as ReportType,
         fileFormat: exportFormat as 'csv' | 'pdf',
         search: search || '',
+        email: email,
       });
 
       if (!res) {
@@ -105,9 +109,17 @@ export default function ReportPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+
+      setExportStatus({
+        type: 'success',
+        message: `Laporan berhasil diekspor dalam format ${exportFormat.toUpperCase()}`
+      });
     } catch (error) {
       console.error("Failed to export report:", error);
-      // You might want to show an error toast/notification here
+      setExportStatus({
+        type: 'error',
+        message: 'Gagal mengekspor laporan. Silakan coba lagi.'
+      });
     }
   }
 
@@ -119,6 +131,8 @@ export default function ReportPage() {
       to: today,
     });
     setReportType(REPORT_TYPES[0].value);
+    setExportStatus({ type: null, message: '' });
+    setEmail("");
   }
 
   return (
@@ -227,7 +241,7 @@ export default function ReportPage() {
                 <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Binning</TableHead>
                 <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Picking</TableHead>
                 <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Total</TableHead>
-                <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Produktivitas / Orang</TableHead>
+                <TableHead className="py-3 font-medium text-gray-500 whitespace-nowrap">Produktivitas / Orang (%)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -251,15 +265,16 @@ export default function ReportPage() {
           </Table>
         </div>
 
-        {/* Email & Format */}
-        {/* <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-500 mb-1">Email address</label>
-          <Input type="email" placeholder="" value={email} onChange={e => setEmail(e.target.value)} className="bg-gray-100" />
-        </div> */}
-
-
         {user?.role === ROLES.KEPALA_GUDANG && (
           <>
+            <div className="my-4 border-t border-gray-200"></div>
+
+            {/* Email & Format */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-500 mb-1">Email address</label>
+              <Input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
+            </div>
+
             <div className="mb-6">
               <div className="font-medium text-gray-600 mb-2">Format</div>
               <div className="flex gap-2">
@@ -268,8 +283,18 @@ export default function ReportPage() {
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button className="w-full" onClick={() => handleExport()}>Export</Button>
+            <div className="flex flex-col gap-2">
+              <Button className="w-full" onClick={() => handleExport()}
+                disabled={!email || !reportData || !exportFormat}
+              >Export</Button>
+              {exportStatus.type && (
+                <div className={`p-3 rounded-lg text-sm ${exportStatus.type === 'success'
+                  ? 'bg-green-50 text-green-600'
+                  : 'bg-red-50 text-red-600'
+                  }`}>
+                  {exportStatus.message}
+                </div>
+              )}
             </div>
           </>
         )}
